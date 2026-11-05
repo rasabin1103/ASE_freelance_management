@@ -1,0 +1,12 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert');
+let records=[];const calls=[];
+const ctx={by:k=>records.filter(r=>r.kind===k),round:Math.round,eur:n=>String(n/100),esc:s=>String(s??'').replace(/</g,'&lt;'),Intl,Date,page:'investments',api:(...args)=>{calls.push(args);return Promise.resolve({id:1})},$:()=>({value:'valuation',disabled:false}),console};vm.createContext(ctx);
+for(const file of ['business.js','wealth.js','portfolio.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../public',file),'utf8'),ctx);
+records=[{kind:'portfoliosnapshot',id:1,planId:7,source:'Trade Republic',date:'2026-01-01',totalCents:10000,costCents:9000,positions:[{name:'ETF',identifier:'IE123',quantity:'1',valueCents:10000,costCents:9000}]},{kind:'portfoliosnapshot',id:2,planId:7,source:'trade republic',date:'2026-02-01',totalCents:11000,costCents:9000,positions:[{name:'ETF',identifier:'IE123',quantity:'1',valueCents:11000,costCents:9000}]}];
+assert.equal(vm.runInContext('latestPortfolioSnapshots(7).length',ctx),1);
+assert.equal(vm.runInContext('latestPortfolioSnapshots(7)[0].totalCents',ctx),11000);
+assert(vm.runInContext('portfolioPanel({id:7,category:"investment"})',ctx).includes('110'));
+assert.equal(vm.runInContext('guessPortfolioType("COMPRA")',ctx),'buy');assert.equal(vm.runInContext('guessPortfolioType("TRADE")',ctx),'');
+vm.runInContext(`wealthDialog=(title,fields,save)=>{save({action:'valuation',date:'2026-01-01',amount:'0',fromBusiness:'false'})};openWealthEntry({id:7,category:'investment',startMonth:'2026-01'},{action:'valuation',date:'2026-01-01',amount:0});`,ctx);
+assert.equal(calls[0][0],'POST');assert.equal(calls[0][2],'');assert.equal(calls[0][1].data.planId,7);
+console.log('OK: última captura por plataforma, tipos ambiguos sin adivinar y valoración nueva sin editar un registro inexistente.');
